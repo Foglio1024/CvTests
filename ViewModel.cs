@@ -43,6 +43,9 @@ namespace CvTests
         #region Properties
 
         bool _useCPU = true;
+        bool _useGPU = true;
+        WriteableBitmap? _imageSource;
+
         public bool UseCPU
         {
             get => _useCPU;
@@ -53,8 +56,6 @@ namespace CvTests
                 N();
             }
         }
-
-        bool _useGPU = true;
         public bool UseGPU
         {
             get => _useGPU;
@@ -65,8 +66,6 @@ namespace CvTests
                 N();
             }
         }
-
-        WriteableBitmap? _imageSource;
         public WriteableBitmap? ImageSource
         {
             get => _imageSource;
@@ -101,12 +100,6 @@ namespace CvTests
             _videoCapture.Start();
         }
 
-        internal void StopCapture()
-        {
-            _videoCapture.ImageGrabbed -= OnFrame;
-            _videoCapture.Stop();
-        }
-
         void OnFrame(object? sender, EventArgs e)
         {
             // retrieve frame from camera
@@ -114,10 +107,10 @@ namespace CvTests
 
             // resize it for better performance
             CvInvoke.Resize(_frame, _frame, new Size(_frame.Width / 2, _frame.Height / 2));
-            //_frame.ToImage<Bgr, byte>().Resize(.5, Inter.Cubic).Mat.CopyTo(_frame);
 
-            Rectangle[] cpuResults = Array.Empty<Rectangle>();
-            Rectangle[] gpuResults = Array.Empty<Rectangle>();
+            var cpuResults = Array.Empty<Rectangle>();
+            var gpuResults = Array.Empty<Rectangle>();
+
             if (UseCPU)
             {
                 // detect using CPU
@@ -137,18 +130,28 @@ namespace CvTests
             }
 
             // draw rectangles to original frame
-            foreach (Rectangle rect in cpuResults)
+            foreach (var rect in cpuResults)
             {
                 CvInvoke.Rectangle(_frame, rect, _cpuCol, 2);
                 CvInvoke.PutText(_frame, $"CPU avg: {TotalCpuPerfMon.Average:N1}ms", new Point(rect.X, rect.Y + rect.Height + 20), FontFace.HersheyPlain, 1.5, _cpuCol, 2);
             }
-            foreach (Rectangle rect in gpuResults)
+            foreach (var rect in gpuResults)
             {
                 CvInvoke.Rectangle(_frame, rect, _gpuCol, 2);
                 CvInvoke.PutText(_frame, $"GPU avg: {TotalGpuPerfMon.Average:N1}ms", new Point(rect.X, rect.Y - 10), FontFace.HersheyPlain, 1.5, _gpuCol,2);
             }
 
             UpdatePreviewImage();
+        }
+
+        Rectangle[] DetectFacesCPU()
+        {
+            // convert to gray image, equalize hist
+            CvInvoke.CvtColor(_frame, _gray, ColorConversion.Bgr2Gray);
+            CvInvoke.EqualizeHist(_gray, _gray);
+
+            // detect using CPU classifier
+            return _cpuCascadeClassifier.DetectMultiScale(_gray, minSize: new Size(200, 200));
         }
 
         Rectangle[] DetectFacesGPU()
@@ -171,16 +174,6 @@ namespace CvTests
             return _gpuCascadeClassifier.Convert(_facesMat);
         }
 
-        Rectangle[] DetectFacesCPU()
-        {
-            // convert to gray image, equalize hist
-            CvInvoke.CvtColor(_frame, _gray, ColorConversion.Bgr2Gray);
-            CvInvoke.EqualizeHist(_gray, _gray);
-
-            // detect using CPU classifier
-            return _cpuCascadeClassifier.DetectMultiScale(_gray, minSize: new Size(200, 200));
-        }
-
         void UpdatePreviewImage()
         {
             _dispatcher?.Invoke(() =>
@@ -199,6 +192,10 @@ namespace CvTests
             });
         }
 
-
+        internal void StopCapture()
+        {
+            _videoCapture.ImageGrabbed -= OnFrame;
+            _videoCapture.Stop();
+        }
     }
 }

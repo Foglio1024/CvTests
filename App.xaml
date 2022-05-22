@@ -12,6 +12,5 @@
                 <ResourceDictionary Source="pack://application:,,,/Nostrum.WPF;component/Resources/Styles.xaml"/>            
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
-         
     </Application.Resources>
 </Application>
