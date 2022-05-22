@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Emgu.CV" Version="4.4.0.4099" />
+    <PackageReference Include="Emgu.CV.Bitmap" Version="4.4.0.4099" />
+    <PackageReference Include="Emgu.CV.runtime.windows" Version="4.4.0.4099" />
+    <PackageReference Include="Emgu.CV.runtime.windows.cuda" Version="4.4.0.4099" />
+    <PackageReference Include="Nostrum.WPF" Version="1.2.19" />
+  </ItemGroup>
+
+</Project>
