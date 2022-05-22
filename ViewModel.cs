@@ -13,11 +13,11 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Color = System.Drawing.Color;
+using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
 namespace CvTests
 {
-
     public class ViewModel : ThreadSafeObservableObject
     {
         #region Fields
@@ -28,20 +28,43 @@ namespace CvTests
         readonly GpuMat _facesMat = new();
         readonly Mat _frame = new();
         readonly Mat _gray = new();
-        readonly CascadeClassifier _cpuCascadeClassifier = new(@"E:\Repos\CvTests\haarcascade_frontalface_alt.xml");
-        readonly CudaCascadeClassifier _gpuCascadeClassifier = new(@"E:\Repos\CvTests\haarcascade_frontalface_alt_cuda.xml")
+        readonly CascadeClassifier _cpuCascadeClassifier = new(@".\haarcascade_frontalface_alt.xml");
+        readonly CudaCascadeClassifier _gpuCascadeClassifier = new(@".\haarcascade_frontalface_alt_cuda.xml")
         {
-            MaxNumObjects = 1,
             MinObjectSize = new Size(200, 200)
         };
 
         readonly Stopwatch _totalStopwatch = new();
+        readonly MCvScalar _cpuCol;
+        readonly MCvScalar _gpuCol;
 
         #endregion
 
         #region Properties
-        public PerformanceMonitor TotalCpuPerfMon { get; } = new();
-        public PerformanceMonitor TotalGpuPerfMon { get; } = new();
+
+        bool _useCPU = true;
+        public bool UseCPU
+        {
+            get => _useCPU;
+            set
+            {
+                if (_useCPU == value) return;
+                _useCPU = value;
+                N();
+            }
+        }
+
+        bool _useGPU = true;
+        public bool UseGPU
+        {
+            get => _useGPU;
+            set
+            {
+                if (_useGPU == value) return;
+                _useGPU = value;
+                N();
+            }
+        }
 
         WriteableBitmap? _imageSource;
         public WriteableBitmap? ImageSource
@@ -55,18 +78,8 @@ namespace CvTests
             }
         }
 
-        bool _useGPU;
-        public bool UseGPU
-        {
-            get => _useGPU;
-            set
-            {
-                if (_useGPU == value) return;
-                _useGPU = value;
-                N();
-            }
-        }
-
+        public PerformanceMonitor TotalCpuPerfMon { get; } = new();
+        public PerformanceMonitor TotalGpuPerfMon { get; } = new();
         public ICommand StartCaptureCommand { get; }
 
         #endregion
@@ -79,12 +92,15 @@ namespace CvTests
 
             _videoCapture.ImageGrabbed += OnFrame;
 
+            _cpuCol = new Bgr(Color.IndianRed).MCvScalar;
+            _gpuCol = new Bgr(Color.MediumSeaGreen).MCvScalar;
         }
 
         void StartCapture()
         {
             _videoCapture.Start();
         }
+
         internal void StopCapture()
         {
             _videoCapture.ImageGrabbed -= OnFrame;
@@ -94,29 +110,42 @@ namespace CvTests
         void OnFrame(object? sender, EventArgs e)
         {
             // retrieve frame from camera
-            _videoCapture.Retrieve(_frame);
+            if(!_videoCapture.Retrieve(_frame)) return;
 
-            Rectangle[] results;
+            // resize it for better performance
+            CvInvoke.Resize(_frame, _frame, new Size(_frame.Width / 2, _frame.Height / 2));
+            //_frame.ToImage<Bgr, byte>().Resize(.5, Inter.Cubic).Mat.CopyTo(_frame);
 
-            if (UseGPU)
+            Rectangle[] cpuResults = Array.Empty<Rectangle>();
+            Rectangle[] gpuResults = Array.Empty<Rectangle>();
+            if (UseCPU)
             {
+                // detect using CPU
                 _totalStopwatch.Restart();
-                results = DetectFacesGPU();
-                _totalStopwatch.Stop();
-                TotalGpuPerfMon.AddSample(_totalStopwatch.ElapsedMilliseconds);
-            }
-            else
-            {
-                _totalStopwatch.Restart();
-                results = DetectFacesCPU();
+                cpuResults = DetectFacesCPU();
                 _totalStopwatch.Stop();
                 TotalCpuPerfMon.AddSample(_totalStopwatch.ElapsedMilliseconds);
             }
 
-            // draw rectangles to original frame
-            foreach (Rectangle rect in results)
+            if (UseGPU)
             {
-                CvInvoke.Rectangle(_frame, rect, new Bgr(UseGPU ? Color.Green : Color.Red).MCvScalar, 2);
+                // detect using GPU
+                _totalStopwatch.Restart();
+                gpuResults = DetectFacesGPU();
+                _totalStopwatch.Stop();
+                TotalGpuPerfMon.AddSample(_totalStopwatch.ElapsedMilliseconds);
+            }
+
+            // draw rectangles to original frame
+            foreach (Rectangle rect in cpuResults)
+            {
+                CvInvoke.Rectangle(_frame, rect, _cpuCol, 2);
+                CvInvoke.PutText(_frame, $"CPU avg: {TotalCpuPerfMon.Average:N1}ms", new Point(rect.X, rect.Y + rect.Height + 20), FontFace.HersheyPlain, 1.5, _cpuCol, 2);
+            }
+            foreach (Rectangle rect in gpuResults)
+            {
+                CvInvoke.Rectangle(_frame, rect, _gpuCol, 2);
+                CvInvoke.PutText(_frame, $"GPU avg: {TotalGpuPerfMon.Average:N1}ms", new Point(rect.X, rect.Y - 10), FontFace.HersheyPlain, 1.5, _gpuCol,2);
             }
 
             UpdatePreviewImage();
@@ -124,7 +153,6 @@ namespace CvTests
 
         Rectangle[] DetectFacesGPU()
         {
-
             // upload frame to GPU
             _gpuFrame.Upload(_frame);
 
@@ -137,7 +165,7 @@ namespace CvTests
             {
                 _gpuCascadeClassifier.DetectMultiScale(_gpuGray, _facesMat);
             }
-            catch  { return Array.Empty<Rectangle>(); }
+            catch { return Array.Empty<Rectangle>(); }
 
             // convert GPU Mat to Rectangle[]
             return _gpuCascadeClassifier.Convert(_facesMat);

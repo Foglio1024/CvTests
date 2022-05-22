@@ -4,26 +4,30 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CvTests" d:DataContext="{d:DesignInstance Type=local:ViewModel}"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        xmlns:nsEx="clr-namespace:Nostrum.WPF.Extensions;assembly=Nostrum.WPF"
+        mc:Ignorable="d" Background="#222" MinWidth="400"
+        Title="OpenCV GPU face detection test" Height="450" Width="800" SizeToContent="WidthAndHeight">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition/>
-            <ColumnDefinition/>
-        </Grid.ColumnDefinitions>
-        <Image Source="{Binding ImageSource}" Grid.ColumnSpan="2" Margin="10"/>
-        <Button Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Stretch"
-                Command="{Binding StartCaptureCommand}" Content="Start capture" Padding="10" Margin="10"/>
-        <CheckBox Content="Use GPU" Grid.Row="1" VerticalAlignment="Center" Margin="10"
-                  IsChecked="{Binding UseGPU}"/>
-        <TextBlock FontWeight="DemiBold" Margin="10">
-            <Run Foreground="Red" Text="CPU avg processing time: "/><Run Text="{Binding TotalCpuPerfMon.Average, Mode=OneWay, StringFormat={}{0:N1}}"/><Run Text="ms"/>
-            <LineBreak/>
-            <Run Foreground="Green" Text="GPU avg processing time: "/><Run Text="{Binding TotalGpuPerfMon.Average, Mode=OneWay, StringFormat={}{0:N1}}"/><Run Text="ms"/>
-        </TextBlock>
+        <Image Source="{Binding ImageSource}" Grid.ColumnSpan="2" Margin="10 10 10 0" MaxWidth="1200" Stretch="Uniform"/>
+        <Grid Grid.Row="1" HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+        <UniformGrid Grid.Row="1" Columns="1" Margin="10 10" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <CheckBox Content="CPU" IsChecked="{Binding UseCPU}" Foreground="White" nsEx:CheckBoxExtensions.Size="14" BorderBrush="IndianRed" Margin="0 0 0 4"/>
+            <CheckBox Content="GPU" IsChecked="{Binding UseGPU}" Foreground="White" nsEx:CheckBoxExtensions.Size="14" BorderBrush="MediumSeaGreen"/>
+        </UniformGrid>
+        <Button Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                Command="{Binding StartCaptureCommand}" Content="START CAPTURE" Padding="10" Margin="10"
+                FontSize="16" FontWeight="DemiBold"
+                Style="{StaticResource ButtonMainStyle}" HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center" nsEx:ButtonExtensions.CornerRadius="5"
+                Background="MediumSeaGreen"/>
+        </Grid>
     </Grid>
 </Window>
